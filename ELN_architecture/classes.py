@@ -50,12 +50,12 @@ class Lab_Data:
                         data_files.append(f)
         #use pandas to read in info file
         self.info_df = pd.read_csv(info_csv)
+        #Create a column in info_df to hold the data
+        self.info_df['data'] = pd.Series(dtype='object')
         return data_files
 
     def load(self, path_to_raw_data, data_files):
         '''Convert data from raw csv files to standardized (will be instrument-specific) and put into self.info['data']'''
-        #Create a column in info_df to hold the data
-        self.info_df['data'] = pd.Series(dtype='object')
         #iterate through the info_df to read in the data files and store in the data column in info_df
         for i,row in self.info_df.iterrows():
             if self.info_df.at[i,'File'] in data_files:
