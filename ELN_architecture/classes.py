@@ -25,8 +25,8 @@ class Lab_Data:
                  info_df:'df with id and data columns (same as key)' = None, # type: ignore
                  processing_metadata: 'will decide format later: maybe str' = None, # type: ignore
                  path_to_raw_data:'path to folder with info/data csv files' = None) -> None: # type: ignore
-        self.experimen_df = experiment_df
-        self.info_df = info_df
+        self.experimen_df: pd.DataFrame = experiment_df
+        self.info_df: pd.DataFrame = info_df
         self.processing_metadata = processing_metadata
         if path_to_raw_data is not None:
             self.process(path_to_raw_data, info_csv)
@@ -127,7 +127,7 @@ class Lab_Data:
                                                                  legendgroup=str(self.info_df.at[idx, "id"])), row=i+1, col=1)
             fig.update_xaxes(title_text=x, row=i+1, col=1)
             fig.update_yaxes(title_text=y_label, row=i+1, col=1)
-            fig.add_hline(y=0, row=i+1, col=1)
+            fig.add_hline(y=0, row=i+1, col=1) # type: ignore
 
             #setup default view ranges
             if y_range is not None:
