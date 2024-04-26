@@ -11,6 +11,8 @@ import plotly.express as px
 import plotly.graph_objs as go
 import os
 
+import plotly.subplots
+
 #Some Global Variables?
 
 
@@ -57,7 +59,7 @@ class Lab_Data:
         #iterate through the info_df to read in the data files and store in the data column in info_df
         for i,row in self.info_df.iterrows():
             if self.info_df.at[i,'File'] in data_files:
-                self.at[i,'data'] = pd.read_csv(path_to_raw_data + row['File'])
+                self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data + row['File'])
         return True
 
     def process(self,path_to_raw_data, info_csv):
@@ -69,22 +71,22 @@ class Lab_Data:
     def write(self, path_to_proc_data):
         '''Write processed data to a folder, saving the info_df and the data separately as csv files.'''
         #Fix path string if not given a terminal /
-        if not path.endswith('/'):
-            path = path.strip().replace(' ','_') + '/'
+        if not path_to_proc_data.endswith('/'):
+            path_to_proc_data = path_to_proc_data.strip().replace(' ','_') + '/'
         #check for and/or make directory
-        if not os.path.exists(path):
-            os.mkdir(path)
+        if not os.path.exists(path_to_proc_data):
+            os.mkdir(path_to_proc_data)
         #save each individual dataset
         for i, row in self.info_df.iterrows():
             # Manipulate the ID name to make it a reasonable filename
             name = str(row['id']).replace(' ', '_').replace('.','').replace('/','')
             #save x,y data to csv
-            row['data'].to_csv(f'{path}{name}.csv')
+            row['data'].to_csv(f'{path_to_proc_data}{name}.csv')
         #save the info df
         info = self.info_df.drop('data', axis=1)
-        info.to_csv(f'{path}info.csv')
-        print(f'Data saved to {path}.')
-        return path
+        info.to_csv(f'{path_to_proc_data}info.csv')
+        print(f'Data saved to {path_to_proc_data}.')
+        return path_to_proc_data
 
     def print(self):
         '''Print information from the data object'''
@@ -96,9 +98,49 @@ class Lab_Data:
         print(self.info_df.at[0,'data'].columns)
         return self.info_df.drop('data',axis=1).to_markdown()
 
-    def quick_plot(self, x, y):
-        '''Use plotly to generate a plot.'''
-        pass
+    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000):
+        '''Use plotly to generate a general plot.
+        x and y take as imput the string for the column'''
+        # Makes interactive plotly subplots from the data given specific x and y (str or list) parameters as the df column names
+        # Set up y data structure, should be a list to handle plotting multiple y values stacked
+        if y is None:
+            y = self.info_df.at[0,'data'].columns[1:]
+        if isinstance(y, str):
+            y = [y]
+        # Set up x data structure, should be the column name to use as x
+        if x is None:
+            x = self.info_df.at[0,'data'].columns[0]
+
+        fig = plotly.subplots.make_subplots(rows=len(y), cols=1, subplot_titles=y, vertical_spacing=0.1, shared_xaxes=True)
+
+        # Define a color sequence for lines
+        #colors = px.colors.qualitative.G10 #alternative color scheme
+        colors = ['blue', 'red', 'green', 'gold',  'purple', 'deepskyblue', 'orange', 'slategrey', 'brown', 'black']
+        
+        #Chat GPT figured out a way to link the colors and names of the plots for each y value
+        for i, y_label in enumerate(y):
+            for j, idx in enumerate(self.info_df.index):
+                color_index = j % len(colors)  # Cycle through colors for each line in subplot
+                trace_name = f'{self.info_df.at[idx, "id"]} ({y_label})'  # Include both index label and y label in trace name
+                fig.add_trace(go.Scatter(x=self.info_df.at[idx, 'xy'][x], y=self.info_df.at[idx, 'xy'][y_label], name=trace_name, 
+                                         mode='lines', line=dict(width=2, color=colors[color_index]),
+                                                                 legendgroup=str(self.info_df.at[idx, "id"])), row=i+1, col=1)
+            fig.update_xaxes(title_text=x, row=i+1, col=1)
+            fig.update_yaxes(title_text=y_label, row=i+1, col=1)
+            fig.add_hline(y=0, row=i+1, col=1)
+
+            #setup default view ranges
+            if y_range is not None:
+                fig.update_yaxes(range=y_range[i] if len(y) > 1 else y_range, row=i+1, col=1)
+            if x_range is not None:
+                fig.update_xaxes(range=x_range, row=i+1, col=1)
+        
+        #update plot layout
+        if height is None:
+            height = 350*len(y) if len(y) > 1 else 400
+        fig.update_layout(width=width, height=height, margin=dict(b=50, t=50, l=20)) #setup plot layout, should potentially parse title or **kwargs here too
+        #fig.show()
+        return fig
 
     def prep_plt(self):
         '''Prepare the commands to generate a matplotlib plot of the data.'''
