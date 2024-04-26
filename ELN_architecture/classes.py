@@ -24,13 +24,14 @@ class Lab_Data:
                  info_csv:'file name for experiment key -- maybe remove later from class attribute' = None, # type: ignore
                  info_df:'df with id and data columns (same as key)' = None, # type: ignore
                  processing_metadata: 'will decide format later: maybe str' = None, # type: ignore
-                 path_to_raw_data:'path to folder with info/data csv files' = None) -> None: # type: ignore
+                 path_to_raw_data:'path to folder with info/data csv files' = None, # type: ignore
+                 **kwargs) -> None: 
         self.experimen_df: pd.DataFrame = experiment_df
         self.info_df: pd.DataFrame = info_df
         self.processing_metadata = processing_metadata
         if path_to_raw_data is not None and info_csv is not None:
             print(f'Parsing Data from {path_to_raw_data} and {info_csv}.')
-            self.process(path_to_raw_data, info_csv)
+            self.process(path_to_raw_data, info_csv, **kwargs)
 
     def copy(self):
         '''Copy an instance of the data Class. Should work for child classes too.'''
@@ -60,13 +61,13 @@ class Lab_Data:
         #iterate through the info_df to read in the data files and store in the data column in info_df
         for i,row in self.info_df.iterrows():
             if self.info_df.at[i,'File'] in data_files:
-                self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data + row['File'])
+                self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data + row['File'], index_col=0)
         return True
 
-    def process(self,path_to_raw_data, info_csv):
+    def process(self,path_to_raw_data, info_csv, **kwargs):
         '''Read and Load the data to populate the class attributes.'''
         data_files = self.read(path_to_raw_data, info_csv)
-        self.load(path_to_raw_data, data_files)
+        self.load(path_to_raw_data, data_files, **kwargs)
         return True
 
     def write(self, path_to_proc_data):
@@ -79,10 +80,12 @@ class Lab_Data:
             os.mkdir(path_to_proc_data)
         #save each individual dataset
         for i, row in self.info_df.iterrows():
-            # Manipulate the ID name to make it a reasonable filename
-            name = str(row['id']).replace(' ', '_').replace('.','').replace('/','')
+            # Manipulate the File name to make it a csv #CURRENTLY USES EXISTING FILE NAME SO NEED NEW PATH TO NOT OVERWRITE
+            if not row['File'].endswith('.csv'):
+                row['File'] = str(row['File']) + '.csv'
+            name = str(row['File'])
             #save x,y data to csv
-            row['data'].to_csv(f'{path_to_proc_data}{name}.csv')
+            row['data'].to_csv(f'{path_to_proc_data}{name}')
         #save the info df
         info = self.info_df.drop('data', axis=1)
         info.to_csv(f'{path_to_proc_data}info.csv')

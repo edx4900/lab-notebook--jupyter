@@ -14,8 +14,11 @@ class AbsCD_Data(Lab_Data):
                  info_csv:'file name for experiment key -- maybe remove later from class attribute' = None, # type: ignore
                  info_df: 'df with id and data columns (same as key)' = None,  # type: ignore
                  processing_metadata: 'will decide format later: maybe str' = None,  # type: ignore
-                 path_to_raw_data: 'path to folder with info/data csv files' = None) -> None:  # type: ignore
-        super().__init__(experiment_df, info_csv, info_df, processing_metadata, path_to_raw_data)
+                 path_to_raw_data: 'path to folder with info/data csv files' = None, # type: ignore
+                 **kwargs) -> None:  # type: ignore
+        super().__init__(experiment_df, info_csv, info_df, processing_metadata, path_to_raw_data, **kwargs)
+        #drop empty columns
+        self.info_df.drop(self.info_df.columns[self.info_df.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
 
 
     def load(self, path_to_raw_data, data_files, j1700 = True):
@@ -47,6 +50,7 @@ class AbsCD_Data(Lab_Data):
                                                 nrows=npts, names=np.concatenate((xlabels,ylabels)))
         #Use parent load function if saved data from code rather than j1700
         else:
+            print('Using Parent Class Load function.')
             super().load(path_to_raw_data, data_files)
 
     def subtract(self, ref_id, ys):
