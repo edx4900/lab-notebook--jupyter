@@ -44,7 +44,7 @@ class Lab_Data:
         for root,dirs,file in os.walk(top=path_to_raw_data):
             if root==path_to_raw_data:
                 for f in file:
-                    if f.endswith('.csv'):
+                    if f.endswith('.csv') and 'info' not in f:
                         data_files.append(f)
         #use pandas to read in info file
         self.info_df = pd.read_csv(info_csv)
@@ -65,10 +65,26 @@ class Lab_Data:
         data_files = self.read(path_to_raw_data, info_csv)
         self.load(path_to_raw_data, data_files)
         return True
-    
-    def write(self, path_to_raw_data):
-        '''Write processed data to a file.'''
-        pass
+
+    def write(self, path_to_proc_data):
+        '''Write processed data to a folder, saving the info_df and the data separately as csv files.'''
+        #Fix path string if not given a terminal /
+        if not path.endswith('/'):
+            path = path.strip().replace(' ','_') + '/'
+        #check for and/or make directory
+        if not os.path.exists(path):
+            os.mkdir(path)
+        #save each individual dataset
+        for i, row in self.info_df.iterrows():
+            # Manipulate the ID name to make it a reasonable filename
+            name = str(row['id']).replace(' ', '_').replace('.','').replace('/','')
+            #save x,y data to csv
+            row['data'].to_csv(f'{path}{name}.csv')
+        #save the info df
+        info = self.info_df.drop('data', axis=1)
+        info.to_csv(f'{path}info.csv')
+        print(f'Data saved to {path}.')
+        return path
 
     def print(self):
         '''Print information from the data object'''
@@ -76,7 +92,9 @@ class Lab_Data:
 
     def to_md(self):
         '''Print some information and return the info dataframe in markdown for display using IPython.'''
-        pass
+        print('Data Columns and info_df:')
+        print(self.info_df.at[0,'data'].columns)
+        return self.info_df.drop('data',axis=1).to_markdown()
 
     def quick_plot(self, x, y):
         '''Use plotly to generate a plot.'''
