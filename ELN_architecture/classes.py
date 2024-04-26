@@ -28,7 +28,8 @@ class Lab_Data:
         self.experimen_df: pd.DataFrame = experiment_df
         self.info_df: pd.DataFrame = info_df
         self.processing_metadata = processing_metadata
-        if path_to_raw_data is not None:
+        if path_to_raw_data is not None and info_csv is not None:
+            print(f'Parsing Data from {path_to_raw_data} and {info_csv}.')
             self.process(path_to_raw_data, info_csv)
 
     def copy(self):
@@ -95,7 +96,7 @@ class Lab_Data:
     def to_md(self):
         '''Print some information and return the info dataframe in markdown for display using IPython.'''
         print('Data Columns and info_df:')
-        print(self.info_df.at[0,'data'].columns)
+        print(self.info_df.at[0,'data'].columns.values)
         return self.info_df.drop('data',axis=1).to_markdown()
 
     def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000):
@@ -104,12 +105,12 @@ class Lab_Data:
         # Makes interactive plotly subplots from the data given specific x and y (str or list) parameters as the df column names
         # Set up y data structure, should be a list to handle plotting multiple y values stacked
         if y is None:
-            y = self.info_df.at[0,'data'].columns[1:]
+            y = self.info_df.at[0,'data'].columns.values[1:]
         if isinstance(y, str):
             y = [y]
         # Set up x data structure, should be the column name to use as x
         if x is None:
-            x = self.info_df.at[0,'data'].columns[0]
+            x = self.info_df.at[0,'data'].columns.values[0]
 
         fig = plotly.subplots.make_subplots(rows=len(y), cols=1, subplot_titles=y, vertical_spacing=0.1, shared_xaxes=True)
 
@@ -122,7 +123,7 @@ class Lab_Data:
             for j, idx in enumerate(self.info_df.index):
                 color_index = j % len(colors)  # Cycle through colors for each line in subplot
                 trace_name = f'{self.info_df.at[idx, "id"]} ({y_label})'  # Include both index label and y label in trace name
-                fig.add_trace(go.Scatter(x=self.info_df.at[idx, 'xy'][x], y=self.info_df.at[idx, 'xy'][y_label], name=trace_name, 
+                fig.add_trace(go.Scatter(x=self.info_df.at[idx, 'data'][x], y=self.info_df.at[idx, 'data'][y_label], name=trace_name, 
                                          mode='lines', line=dict(width=2, color=colors[color_index]),
                                                                  legendgroup=str(self.info_df.at[idx, "id"])), row=i+1, col=1)
             fig.update_xaxes(title_text=x, row=i+1, col=1)

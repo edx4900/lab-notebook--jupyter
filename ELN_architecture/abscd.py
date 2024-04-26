@@ -11,10 +11,11 @@ class AbsCD_Data(Lab_Data):
     '''Abs/CD Data Class for data from the J-1700 with parent Lab_Data'''
     def __init__(self, 
                  experiment_df: 'df with experiment_id, type, project (from experiment dashboard)' = None,  # type: ignore
+                 info_csv:'file name for experiment key -- maybe remove later from class attribute' = None, # type: ignore
                  info_df: 'df with id and data columns (same as key)' = None,  # type: ignore
                  processing_metadata: 'will decide format later: maybe str' = None,  # type: ignore
                  path_to_raw_data: 'path to folder with info/data csv files' = None) -> None:  # type: ignore
-        super().__init__(experiment_df, info_df, processing_metadata, path_to_raw_data)
+        super().__init__(experiment_df, info_csv, info_df, processing_metadata, path_to_raw_data)
 
 
     def load(self, path_to_raw_data, data_files, j1700 = True):
@@ -73,7 +74,7 @@ class AbsCD_Data(Lab_Data):
         if 'NANOMETERS' in self.info_df.at[0,'data'].columns:
             for i,row in self.info_df.iterrows():
                 self.info_df.at[i,'data']['Wavenums'] = np.power(row['data']['NANOMETERS'],-1)*10000000
-            print(self.info_df.at[0,'data'].columns)
+            print(self.info_df.at[0,'data'].columns.values)
             return True
         else:
             return False
@@ -106,7 +107,7 @@ class AbsCD_Data(Lab_Data):
             #for each row do the math for the conversion
             for i, row in self.info_df.iterrows():
                 self.info_df.at[i,'data']['deps'] = np.divide(row['data']['CD/DC [mdeg]'],(concM[i] * path_length * 32980)) # type: ignore
-        print(self.info_df.at[0,'data'].columns)
+        print(self.info_df.at[0,'data'].columns.values)
 
     def add_eps(self, conc, conc_units='M', path_length=1):
         '''Add a y value of Epsilon (1/M*cm) by converting from Abs.
@@ -134,4 +135,4 @@ class AbsCD_Data(Lab_Data):
             #for each row do the math for the conversion
             for i, row in self.info_df.iterrows():
                 self.info_df.at[i,'data']['eps'] = np.divide(row['data']['ABSORBANCE'],(concM[i] * path_length)) # type: ignore
-        print(self.info_df.at[0,'data'].columns)
+        print(self.info_df.at[0,'data'].columns.values)
