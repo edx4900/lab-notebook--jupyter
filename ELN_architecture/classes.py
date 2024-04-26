@@ -18,10 +18,10 @@ import os
 class Lab_Data:
     '''Parent class with a variety of general functions for processing Solomon Lab Data.'''
     def __init__(self, 
-                 experiment_df:'df with experiment_id, type, project (from experiment dashboard)' = None, 
-                 info_csv:'file name for experiment key -- maybe remove later from class attribute' = None, 
-                 info_df:'df with id and data columns (same as key)' = None, 
-                 processing_metadata: 'will decide format later: maybe str' = None,
+                 experiment_df: 'df with experiment_id, type, project (from experiment dashboard)' = None, # type: ignore
+                 info_csv:'file name for experiment key -- maybe remove later from class attribute' = None, # type: ignore
+                 info_df:'df with id and data columns (same as key)' = None, # type: ignore
+                 processing_metadata: 'will decide format later: maybe str' = None, # type: ignore
                  path_to_raw_data:'path to folder with info/data csv files' = None) -> None: # type: ignore
         self.experimen_df = experiment_df
         self.info_df = info_df
@@ -29,9 +29,9 @@ class Lab_Data:
         if path_to_raw_data is not None:
             self.process(path_to_raw_data, info_csv)
 
-    def copy(self, child_class=Lab_Data):
-        '''Copy an instance of the data Class'''
-        new = child_class(experiment_df=self.experimen_df.copy(),
+    def copy(self):
+        '''Copy an instance of the data Class. Should work for child classes too.'''
+        new = type(self)(experiment_df=self.experimen_df.copy(),
                        info_df=self.info_df.copy(),
                        processing_metadata= self.processing_metadata)
         return new
