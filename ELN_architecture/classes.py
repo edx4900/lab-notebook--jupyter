@@ -102,7 +102,7 @@ class Lab_Data:
         print(self.info_df.at[0,'data'].columns.values)
         return self.info_df.drop('data',axis=1).to_markdown()
 
-    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000):
+    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000, fig=None):
         '''Use plotly to generate a general plot.
         x and y take as imput the string for the column'''
         # Makes interactive plotly subplots from the data given specific x and y (str or list) parameters as the df column names
@@ -115,7 +115,8 @@ class Lab_Data:
         if x is None:
             x = self.info_df.at[0,'data'].columns.values[0]
 
-        fig = plotly.subplots.make_subplots(rows=len(y), cols=1, subplot_titles=y, vertical_spacing=0.1, shared_xaxes=True)
+        if fig is None:
+            fig = plotly.subplots.make_subplots(rows=len(y), cols=1, subplot_titles=y, vertical_spacing=0.1, shared_xaxes=True)
 
         # Define a color sequence for lines
         #colors = px.colors.qualitative.G10 #alternative color scheme
