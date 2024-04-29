@@ -53,7 +53,7 @@ class AbsCD_Data(Lab_Data):
             print('Using Parent Class Load function.')
             super().load(path_to_raw_data, data_files)
 
-    def subtract(self, ref_id, ys):
+    def subtract(self, ref_id, ys, ids_to_subtract=None):
         ref_idx = self.info_df.index[self.info_df['id'] == ref_id].to_list()
         if len(ref_idx) == 1:
             ref_idx = ref_idx[0]
@@ -61,7 +61,8 @@ class AbsCD_Data(Lab_Data):
             print('Did not select reference to subtract correctly.')
         ref_values = self.info_df.at[ref_idx, 'data'][ys]
         for i, row in self.info_df.iterrows():
-            self.info_df.at[i,'data'][ys] = row['data'][ys].sub(ref_values, axis='columns')
+            if ids_to_subtract is None or row['id'] in ids_to_subtract: #only subtract from selected samples
+                self.info_df.at[i,'data'][ys] = row['data'][ys].sub(ref_values, axis='columns')
         #self.processing_metadata = self.processing_metadata + ' subtracted off ' + ref_id + ' from ' + str(ys)
         return True
     
