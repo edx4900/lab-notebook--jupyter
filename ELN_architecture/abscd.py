@@ -47,7 +47,7 @@ class AbsCD_Data(Lab_Data):
                                 npts=int(line.split(',')[-1])
                     #read in csv as dataframe to correct place in info_df
                     self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data+self.info_df.at[i,'File'], skiprows=22, header=None,
-                                                nrows=npts, names=np.concatenate((xlabels,ylabels)))
+                                                nrows=npts, names=np.concatenate((xlabels,ylabels)), dtype=float)
         #Use parent load function if saved data from code rather than j1700
         else:
             print('Using Parent Class Load function.')
@@ -59,6 +59,7 @@ class AbsCD_Data(Lab_Data):
             ref_idx = ref_idx[0]
         else:
             print('Did not select reference to subtract correctly.')
+            return False
         ref_values = self.info_df.at[ref_idx, 'data'][ys]
         for i, row in self.info_df.iterrows():
             if ids_to_subtract is None or row['id'] in ids_to_subtract: #only subtract from selected samples
