@@ -1,5 +1,6 @@
 '''A Class for Compiling Abs and CD Data from the J-1700.'''
 from classes import *
+from scipy.optimize import least_squares
 
 #Some global variable
 NM = 'NANOMETER'
@@ -18,7 +19,8 @@ class AbsCD_Data(Lab_Data):
                  **kwargs) -> None:  # type: ignore
         super().__init__(experiment_df, info_csv, info_df, processing_metadata, path_to_raw_data, **kwargs)
         #drop empty columns
-        self.info_df.drop(self.info_df.columns[self.info_df.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
+        if info_df is not None:
+            self.info_df.drop(self.info_df.columns[self.info_df.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
 
 
     def load(self, path_to_raw_data, data_files, j1700 = True):
@@ -142,3 +144,161 @@ class AbsCD_Data(Lab_Data):
             for i, row in self.info_df.iterrows():
                 self.info_df.at[i,'data']['eps'] = np.divide(row['data']['ABSORBANCE'],(concM[i] * path_length)) # type: ignore
         print(self.info_df.at[0,'data'].columns.values)
+
+    def gauss(self, x, center, fwhm):
+        '''Define the Gaussian Distribution Function'''
+        width = fwhm/(2*np.sqrt(2*np.log(2)))
+        return np.exp(-1/2*(x-center)**2/(width)**2)
+
+    def resid(self, fitvars, xs, ys):
+        '''Residual Calculator for Fitting to Gaussians'''
+        #fit vars should be in format [energy1, energy2, ..., width1, w2, ..., scalarAbs1, sA2, ..., scalarCD1, sCD2, ...]
+        num_gauss = int(len(fitvars)/(len(ys)+2))
+            
+        total_resid=np.array([])
+        #for each y given, calculate gaussians, fit, and add to list of residuals
+        for j in range(len(ys)):
+            #check to see if multiple x lists
+            if len(xs)==len(ys):
+                x=xs[j]
+            else:
+                x=xs
+            #get a list of the individual gaussian y values
+            gauss_list = [fitvars[i+((2+j)*num_gauss)]*self.gauss(x, fitvars[i], fitvars[i+num_gauss]) for i in range(num_gauss)]
+            #calculate total for Abs with current params
+            total_fit = np.sum(gauss_list, axis=0)
+            #calculate total residual and add to the list
+            total_resid = np.concatenate((total_resid, ys[j] - total_fit))
+
+        return total_resid
+
+    def fit_gaussians(self, energies, fwhm, intens, id, x_col='Wavenums', y_cols=['eps','deps'], xrange=None, low_bds=None, up_bds=None, same_x=True, gtol=1e-13, ftol=1e-13, xtol=1e-13, scalar=None):
+        '''A function to fit Abs/CD data to gaussian bands'''
+        #make sure all guess inputs are floats 
+        energies = [float(e) for e in energies]
+        widths= [float(w) for w in fwhm]
+        #intens = np.concatenate((intens))
+        intens= [float(ints) for ints in intens]
+        
+        num_gauss = len(energies)
+        #get x and y data
+        idx = self.info_df.index[self.info_df['id']==id].to_numpy()[0]
+        sample_row = self.info_df.loc[self.info_df['id']==id].copy()
+        sample_row = sample_row.reset_index()
+        if xrange is not None:
+            row_data = sample_row.at[0,'data'].loc[(sample_row.at[0,'data'][x_col] > xrange[0]) & (sample_row.at[0,'data'][x_col] < xrange[1])]
+        else:
+            row_data = sample_row.at[0,'data']
+        xs = row_data[x_col].to_numpy()
+        ys = [row_data[y_cols].to_numpy()] if type(y_cols) is not list else row_data[y_cols].T.to_numpy()
+
+
+        #normalize ys, intensities, and bounds
+        areas= np.array([0]*len(ys))
+        nys = []
+        nintens = np.array(intens)
+        #handle bounds setup
+        if low_bds is not None:
+            low_bds = [float(lb) for lb in low_bds]
+            nl_bds = np.array(low_bds)
+        else:
+            nl_bds = -1*np.inf
+        if up_bds is not None:
+            up_bds = [float(ub) for ub in up_bds]
+            nu_bds = np.array(up_bds)
+        else:
+            nu_bds = np.inf
+        #iterate through ys, calc and store areas, and normalize
+        for k in range(len(ys)):
+            areas[k]=np.trapz(abs(ys[k]), x=xs if same_x else xs[k])
+            if scalar is not None:
+                areas[k]=areas[k]/scalar[k]
+            nys.append(np.divide(ys[k], areas[k]))
+            nintens[k*num_gauss:k*num_gauss+num_gauss] = np.divide(intens[k*num_gauss:k*num_gauss+num_gauss], areas[k])
+
+            #normalize bounds
+            if low_bds is not None:
+                nl_bds[k*num_gauss+(2*num_gauss):k*num_gauss+(3*num_gauss)] = np.divide(low_bds[(2*num_gauss)+k*num_gauss:k*num_gauss+(3*num_gauss)], areas[k])
+            if up_bds is not None:
+                nu_bds[k*num_gauss+(2*num_gauss):k*num_gauss+(3*num_gauss)] = np.divide(up_bds[(2*num_gauss)+k*num_gauss:k*num_gauss+(3*num_gauss)], areas[k])
+                
+        #prepare input lists
+        params = np.concatenate((energies, widths, nintens))
+        bounds = (nl_bds, nu_bds)
+        #run fit
+        fit = least_squares(self.resid, params, bounds=bounds, args=(xs, nys), verbose=1, gtol=gtol, ftol=ftol, xtol=xtol)
+        
+        #print(fit['success'])
+        #print(fit['message'])
+        nresults = fit['x']
+        
+        results = np.array(nresults)
+        for ai in range(len(areas)):
+            results[ai*num_gauss+(2*num_gauss):ai*num_gauss+(3*num_gauss)] = np.multiply(nresults[ai*num_gauss+(2*num_gauss):ai*num_gauss+(3*num_gauss)],areas[ai])
+        
+        details = pd.DataFrame()
+        details['Energy'] = results[0:num_gauss]
+        details['FWHM'] = results[num_gauss:2*num_gauss]
+        for i in range(len(ys)):
+            ylab = 'Inten_y'+str(i)
+            details[ylab] = results[(i+2)*num_gauss:(i+3)*num_gauss]
+        #add Abs max value    
+        #details['y0_max'] = np.multiply([gauss(0,0,w) for w in details['FWHM']],details['Inten_y0'])
+        #Calc fwhm and oscillator strengths (f)
+        fs = 4.61e-9*details['FWHM']*details['Inten_y0']
+        #details['fwhm'] = fwhms
+        details['f'] = fs
+        
+        # Save results to data object
+        if 'fit' not in self.info_df.columns:
+            self.info_df['fit'] = None
+            self.info_df['fit'] = self.info_df['fit'].astype('object')
+        print(idx)
+        self.info_df.at[idx,'fit'] = results
+        
+        
+        return results, details, fit
+            
+
+    def check_plot(self, id, result=None, x_col='Wavenums', y_cols=['eps','deps'], xrange=None, *args, **kwargs):
+        if result is None:
+            idx = self.info_df.index[self.info_df['id']==id].to_numpy()[0]
+            fitvars = self.info_df.at[idx,'fit'] 
+        else:
+            fitvars= result
+
+        #get x and y data
+        sample_row = self.info_df.loc[self.info_df['id']==id].copy()
+        sample_row = sample_row.reset_index()
+        if xrange is not None:
+            row_data = sample_row.at[0,'data'].loc[(sample_row.at[0,'data'] > xrange[0]) & (sample_row.at[0,'data'] < xrange[1])]
+        else:
+            row_data = sample_row.at[0,'data']
+        xs = row_data[x_col].to_numpy()
+        ys = [row_data[y_cols].to_numpy()] if type(y_cols) is not list else row_data[y_cols].T.to_numpy()
+
+        #fit vars should be in format [energy1, energy2, ..., width1, w2, ..., scalarAbs1, sA2, ..., scalarCD1, sCD2, ...]
+        num_gauss = int(len(fitvars)/(len(ys)+2))
+        
+        #create dataframe for the results
+        fit = pd.DataFrame()
+        fit['x'] = xs
+        #for each y given, calculate gaussians, fit, and add to list of residuals
+        for j in range(len(ys)):
+            ylab = 'y'+str(j)
+            x=xs
+                
+            #get a list of the individual gaussian y values
+            gauss_list = [fitvars[i+((2+j)*num_gauss)]*self.gauss(x, fitvars[i], fitvars[i+num_gauss]) for i in range(num_gauss)]
+            #calculate total for Abs with current params
+            total_fit = np.sum(gauss_list, axis=0)
+            
+            #Add expt, total fit, and each gaussian
+            fit[id+'_'+ylab] = ys[j].copy()
+            fit['fit_'+ylab]= total_fit.copy()
+            for k in range(len(gauss_list)):
+                lab=ylab+'_g'+str(k)
+                fit[lab] = gauss_list[k]              
+        fig = px.line(data_frame=fit, x='x', y=[h for h in fit.columns if ylab in h], **kwargs)
+        fig.show()
+        #return fit
