@@ -261,6 +261,8 @@ class AbsCD_Data(Lab_Data):
             
 
     def check_plot(self, id, result=None, x_col='Wavenums', y_cols=['eps','deps'], xrange=None, *args, **kwargs):
+        '''A way to plot the fits performed by fit_gaussians
+        **kwargs takes inputs for px.line'''
         if result is None:
             idx = self.info_df.index[self.info_df['id']==id].to_numpy()[0]
             fitvars = self.info_df.at[idx,'fit'] 
