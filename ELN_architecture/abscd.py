@@ -3,7 +3,7 @@ from classes import *
 from scipy.optimize import least_squares
 
 #Some global variable
-NM = 'NANOMETER'
+NM = 'NANOMETERS'
 WAVE = 'Wavenums'
 ABS = 'ABSORBANCE'
 CD = 'CD/DC [mdeg]'
@@ -65,18 +65,31 @@ class AbsCD_Data(Lab_Data):
         ref_values = self.info_df.at[ref_idx, 'data'][ys]
         for i, row in self.info_df.iterrows():
             if ids_to_subtract is None or row['id'] in ids_to_subtract: #only subtract from selected samples
-                self.info_df.at[i,'data'][ys] = row['data'][ys].sub(ref_values, axis='columns')
+                self.info_df.at[i,'data'][ys] = row['data'][ys].sub(ref_values)
         #self.processing_metadata = self.processing_metadata + ' subtracted off ' + ref_id + ' from ' + str(ys)
         return True
     
-    def baseline(self, ys, x_range, x_col='NANOMETERS'):
+    def baseline(self, ys, x_range, x_col='NANOMETERS', ignore_idx=None):
         for i, row in self.info_df.iterrows():
-            ref_values = row['data'].loc[(row['data'][x_col]> x_range[0]) & (row['data'][x_col] < x_range[1])].mean(axis=0)[ys]
-            self.info_df.at[i,'data'][ys] = row['data'][ys].sub(ref_values, axis='columns')
+            if ignore_idx is None or i not in ignore_idx:
+                ref_values = row['data'].loc[(row['data'][x_col]> x_range[0]) & (row['data'][x_col] < x_range[1])].mean(axis=0)[ys]
+                self.info_df.at[i,'data'][ys] = row['data'][ys].sub(ref_values)
         #self.processing_metadata = self.processing_metadata + ' baseline subtracted off using' + x_col + str(x_range)
         return True
-    
 
+    def fix_changeover(self, ys, x_change, x_col='NANOMETERS', to_move='Less', ignore_idx=None):
+        '''Fix the discontinuity created by the J-1700 when the detector changes'''
+        for i, row in self.info_df.iterrows():
+            if ignore_idx is None or i not in ignore_idx:
+                before = self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change].head(2)[ys].values
+                after = self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change].tail(2)[ys].values
+                diff = np.subtract(after,before)
+                if to_move == 'Less':
+                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff[0]),
+                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys]))
+                else:
+                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
+                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0])))
     def add_wavenums(self):
     #Add an x value of wavenumbers by converting nanometers
         if 'NANOMETERS' in self.info_df.at[0,'data'].columns:
