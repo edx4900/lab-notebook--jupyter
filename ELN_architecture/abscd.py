@@ -56,6 +56,9 @@ class AbsCD_Data(Lab_Data):
             super().load(path_to_raw_data, data_files)
 
     def subtract(self, ref_id, ys, ids_to_subtract=None):
+        '''Subtract off 1 spectrum's y values from (by default) all of them. 
+        Include list of ids_to_subtract to only subtract ref_id off from a sub-set of the data.
+        Does not check to make sure x values align!'''
         ref_idx = self.info_df.index[self.info_df['id'] == ref_id].to_list()
         if len(ref_idx) == 1:
             ref_idx = ref_idx[0]
@@ -70,6 +73,7 @@ class AbsCD_Data(Lab_Data):
         return True
     
     def baseline(self, ys, x_range, x_col='NANOMETERS', ignore_idx=None):
+        '''Subtract off average y value of featureless region to correct for non-zero baseline'''
         for i, row in self.info_df.iterrows():
             if ignore_idx is None or i not in ignore_idx:
                 ref_values = row['data'].loc[(row['data'][x_col]> x_range[0]) & (row['data'][x_col] < x_range[1])].mean(axis=0)[ys]
@@ -81,9 +85,11 @@ class AbsCD_Data(Lab_Data):
         '''Fix the discontinuity created by the J-1700 when the detector changes'''
         for i, row in self.info_df.iterrows():
             if ignore_idx is None or i not in ignore_idx:
+                #Determine the y value before and after the discontinuity
                 before = self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change].head(2)[ys].values
                 after = self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change].tail(2)[ys].values
                 diff = np.subtract(after,before)
+                #subtract off the difference from the appropriate side
                 if to_move == 'Less':
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff[0]),
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys]))
@@ -91,7 +97,7 @@ class AbsCD_Data(Lab_Data):
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0])))
     def add_wavenums(self):
-    #Add an x value of wavenumbers by converting nanometers
+    '''Add an x value of wavenumbers by converting nanometers'''
         if 'NANOMETERS' in self.info_df.at[0,'data'].columns:
             for i,row in self.info_df.iterrows():
                 self.info_df.at[i,'data']['Wavenums'] = np.power(row['data']['NANOMETERS'],-1)*10000000
