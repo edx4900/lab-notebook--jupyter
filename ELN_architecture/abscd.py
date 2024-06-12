@@ -97,7 +97,7 @@ class AbsCD_Data(Lab_Data):
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0])))
     def add_wavenums(self):
-    '''Add an x value of wavenumbers by converting nanometers'''
+        '''Add an x value of wavenumbers by converting nanometers'''
         if 'NANOMETERS' in self.info_df.at[0,'data'].columns:
             for i,row in self.info_df.iterrows():
                 self.info_df.at[i,'data']['Wavenums'] = np.power(row['data']['NANOMETERS'],-1)*10000000
