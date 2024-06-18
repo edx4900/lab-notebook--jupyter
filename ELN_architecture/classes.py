@@ -48,7 +48,7 @@ class Lab_Data:
         for root,dirs,file in os.walk(top=path_to_raw_data):
             if root==path_to_raw_data:
                 for f in file:
-                    if f.endswith('.csv') and 'info' not in f:
+                    if f.endswith('.csv') and f != info_csv:
                         data_files.append(f)
         #use pandas to read in info file
         self.info_df = pd.read_csv(info_csv)
