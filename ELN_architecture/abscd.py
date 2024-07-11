@@ -36,6 +36,7 @@ class AbsCD_Data(Lab_Data):
                 if self.info_df.at[i,'File'] in data_files:
                     #open and read each file to extract necessary infomation for reading with pandas
                     with open(path_to_raw_data+self.info_df.at[i,'File'], 'r') as f:
+                        count=1
                         for line in f:
                             if 'UNITS' in line and 'X' in line:
                                 xstr=line.split(',')[-1].replace('\n','')
@@ -47,8 +48,11 @@ class AbsCD_Data(Lab_Data):
                                     ylabels.append(ystr)
                             elif 'NPOINTS' in line:
                                 npts=int(line.split(',')[-1])
+                            elif 'XYDATA' in line:
+                                break
+                            count = count+1
                     #read in csv as dataframe to correct place in info_df
-                    self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data+self.info_df.at[i,'File'], skiprows=22, header=None,
+                    self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data+self.info_df.at[i,'File'], skiprows=count, header=None,
                                                 nrows=npts, names=np.concatenate((xlabels,ylabels)), dtype=float)
         #Use parent load function if saved data from code rather than j1700
         else:
@@ -93,6 +97,10 @@ class AbsCD_Data(Lab_Data):
                 if to_move == 'Less':
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff[0]),
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys]))
+
+                elif to_move == 'Both' or to_move == 'both':
+                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff[0]/2),
+                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0]/2)))
                 else:
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0])))
