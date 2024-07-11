@@ -35,9 +35,12 @@ class Lab_Data:
 
     def copy(self):
         '''Copy an instance of the data Class. Should work for child classes too.'''
-        new = type(self)(experiment_df=self.experimen_df.copy(),
+        new = type(self)(experiment_df= None if self.experimen_df is None else self.experimen_df.copy(),
                        info_df=self.info_df.copy(),
                        processing_metadata= self.processing_metadata)
+        if 'data' in new.info_df.columns:
+            for i,row in new.info_df.iterrows():
+                new.info_df.at[i,'data'] = new.info_df.at[i,'data'].copy()
         return new
     
     def read(self, path_to_raw_data, info_csv):
@@ -147,7 +150,28 @@ class Lab_Data:
         #fig.show()
         return fig
 
-    def prep_plt(self):
+    def prep_plt(self, x= None, y= None):
         '''Prepare the commands to generate a matplotlib plot of the data.'''
-        pass
+        # colors = ['b', 'r', 'g', 'y', 'purple', 'cyan', 'orange', 'gray']
+        
+        print("to_plot = VARNAME")
+        print("fig = plt.subplots(figsize=[10,6]")
+        print()
 
+        for i,row in self.info_df.iterrows():
+            print(f"axs.plot(to_plot.info_df.at[{i},'data']['{x}'], to_plot.info_df.at[{i},'data']['{y}'], label='{row['id']}')")
+
+        print()
+        print("axs.set_title()")
+        print(f"axs.set_ylabel('{y}')")
+        print(f"axs.set_xlabel('{x}')")
+        print("axs.legend()")
+        print("axs.set_xlim()")
+        print("axs.set_ylim()")
+        print("# axs[i].ticklabel_format(axis='x',style='sci',scilimits=(3,3),useMathText=True)")
+        print()
+        print("plt.show")
+
+    def get_idx_from_id(self, ids):
+        idxs = self.info_df.index[self.info_df['id'].isin(ids)].to_list()
+        return idxs
