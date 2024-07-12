@@ -63,7 +63,6 @@ class MCD_Data(AbsCD_Data):
         '''Subtract off 0 T MCD spectra from the correct nonzero field spectra. 
         ref_id - dictates which zero you will be using, -1 by default is the 0T before, +1 is the 0T after, else takes id of the zero you want.
         ids_to_subtract - which spectra to subtract off of, by default is all of them'''
-        #Operation to Subtract Zeroes off of data - returns a new VTVH_Data object -- NOT UPDATED YET
         
         #Get zeros
         zero_idx = self.info_df.index[self.info_df[self.labels['FIELD']] == 0].to_list()
@@ -119,7 +118,7 @@ class MCD_Data(AbsCD_Data):
 
 
 
-    def check_mirroring(self, field=None, plot=True):
+    def check_mirroring(self, field=None, plot=True, **kwargs):
         '''Do +T + -T (should be subtracted from 0 already) which should go to 0 to check for mirroring.
         Takes field as an input of either float/int or list if only want to check specific fields in the dataset.'''
 
@@ -135,36 +134,52 @@ class MCD_Data(AbsCD_Data):
           
         #Find negative field of same magnitude
         for i,row in sub_data.info_df.iterrows():
+            #Find the scan for opposite sign field of same magnitude
             oppo=self.info_df.loc[(self.info_df[self.labels['FIELD']]==(-1)*row[self.labels['FIELD']]) & (self.info_df[self.labels['TEMP']]==row[self.labels['TEMP']])].copy().reset_index().loc[0]
+            #Do the arithmetic
             sub_data.info_df.at[i,'data'][self.labels['CD']]=np.add(row['data'][self.labels['CD']],oppo['data'][self.labels['CD']])
+            #Add the corresponding label
             sub_data.info_df.at[i,'id']=row['id'] + ' + ' + oppo['id']
 
         
         #Plot if desired
         if plot:
-            fig = sub_data.quick_plot(y=CD, x=NM)
+            fig = sub_data.quick_plot(y=CD, x=NM, **kwargs)
             return fig
         else:
             return sub_data
 
     
     def half_subd_fields(self, field=None):
-        #Do 0.5*(+T - -T) as a replacement for subtracting off zeroes - NOT UPDATED YET
+        '''Do 0.5*(+T - -T) as a replacement for subtracting off zeroes
+        field - takes a positive field or list of fields to do this for (default is all of them)
+        (Currently might be an error if have duplicates of the same field & temp in finding the negative one)'''
         y='CD/DC [mdeg]'
+        sub_data = self.copy()
+
+        #Select the correct spectra to compare
         if field is None:
-            subtracted = self.data.loc[self.data['FieldSet']>0].copy()
+            sub_data.info_df = sub_data.info_df.loc[sub_data.info_df[self.labels['FIELD']] > 0].copy()
         elif type(field) is float or type(field) is int:
-            subtracted = self.data.loc[self.data['FieldSet']==field].copy()
+            sub_data.info_df = sub_data.info_df.loc[sub_data.info_df[self.labels['FIELD']] == field].copy()
         elif type(field) is list:
-            subtracted = self.data.loc[self.data['FieldSet'] in field].copy()
+            sub_data.info_df = sub_data.info_df.loc[sub_data.info_df[self.labels['FIELD']] in field].copy()
           
         #Find negative field of same magnitude
-        for i,row in subtracted.iterrows():
-            oppo=self.data.loc[(self.data['FieldSet']==(-1)*row['FieldSet']) & (self.data['TempSet']==row['TempSet'])].reset_index().loc[0]
-            subtracted.at[i,y]=0.5*np.subtract(row[y],oppo[y])
-            subtracted.at[i,'Id']='0.5*(' + row['Id'] + ' - ' + oppo['Id'] + ')'
-
-        sub_data = self.copy()
-        sub_data.data = subtracted
-        sub_data.source = self.source + ' checked mirroring by adding opposite signed field (+T + -T) for CD only'
+        for i,row in sub_data.info_df.iterrows():
+            #Find the scan for opposite sign field of same magnitude
+            oppo=self.info_df.loc[(self.info_df[self.labels['FIELD']]==(-1)*row[self.labels['FIELD']]) & (self.info_df[self.labels['TEMP']]==row[self.labels['TEMP']])].copy().reset_index().loc[0]
+            #Do the arithmetic
+            sub_data.info_df.at[i,'data'][self.labels['CD']] = 0.5 * np.subtract(row['data'][self.labels['CD']],oppo['data'][self.labels['CD']])
+            #Add the corresponding label
+            sub_data.info_df.at[i,'id']='0.5*(' + row['id'] + ' - ' + oppo['id'] + ')'
+        
+        #Return the new MCD_Data object
         return sub_data
+
+
+        def add_deps(self, conc, conc_units='M', path_length=0.3):
+        '''Add a y value of Delta Epsilon (1/M*cm) by converting from mdeg.
+        conc - takes numerical value or name of dataframe column in self.data
+        Defaults to pathlength = 0.3 cm for MCD'''
+            super().add_deps(conc, conc_units = conc_units, path_length = path_length)
