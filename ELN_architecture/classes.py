@@ -105,9 +105,11 @@ class Lab_Data:
         print(self.info_df.at[0,'data'].columns.values)
         return self.info_df.drop('data',axis=1).to_markdown()
 
-    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000, fig=None):
+    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000, fig=None, **kwargs):
         '''Use plotly to generate a general plot.
-        x and y take as imput the string for the column'''
+        x and y take as imput the string for the column
+        x_range and y_range are lists of xlim and ylim
+        kwargs fo to update_layout'''
         # Makes interactive plotly subplots from the data given specific x and y (str or list) parameters as the df column names
         # Set up y data structure, should be a list to handle plotting multiple y values stacked
         if y is None:
@@ -146,7 +148,8 @@ class Lab_Data:
         #update plot layout
         if height is None:
             height = 350*len(y) if len(y) > 1 else 400
-        fig.update_layout(width=width, height=height, margin=dict(b=50, t=50, l=20)) #setup plot layout, should potentially parse title or **kwargs here too
+        fig.update_layout(width=width, height=height, margin=dict(b=50, t=50, l=20), **kwargs)
+                        # legend=dict(yanchor="top",y=0.99,xanchor="left",x=0.01)) #setup plot layout, should potentially parse title or **kwargs here too
         #fig.show()
         return fig
 
