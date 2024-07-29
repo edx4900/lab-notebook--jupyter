@@ -46,7 +46,7 @@ class MCD_Data(AbsCD_Data):
         if 'id' not in self.info_df.columns:
             ids = []
             for i,row in self.info_df.iterrows():
-                scan = row['Scan_Num']
+                scan = row[self.labels['SCAN_NUM']]
                 temp = row[self.labels['TEMP']]
                 field = row[self.labels['FIELD']]
                 ids.append(f'{scan}_{temp:.1f}K_{field:.1f}T')
@@ -67,7 +67,8 @@ class MCD_Data(AbsCD_Data):
         #Get zeros
         zero_idx = self.info_df.index[self.info_df[self.labels['FIELD']] == 0].to_list()
         #Create a new column to log subtractions
-        self.info_df['Subtracted'] = None
+        if 'Subtracted' not in self.info_df.columns:
+            self.info_df['Subtracted'] = None
 
         #See which spectra to sub with each zero with builtin logic
         if ref_id in [-1, 1]:
@@ -82,9 +83,9 @@ class MCD_Data(AbsCD_Data):
                 elif ref_id == 1: 
                     #select ones before the zero
                     if zi > 0:
-                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi-1], self.labels['SCAN_NUM']])]['id'].values()
+                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi-1], self.labels['SCAN_NUM']])]['id'].to_numpy()
                     elif zi == 0:
-                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']])]['id'].values()
+                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']])]['id'].to_numpy()
                 
                 #Get id of the 0T for printing and then do the subtraction
                 zid = self.info_df.at[zero_idx[zi], 'id']
@@ -102,17 +103,17 @@ class MCD_Data(AbsCD_Data):
 
         # if only want to subtract one zero off of selected
         else:
-            print(f'Subtracted {ref_id} off for {ys}.')
+            print(f'Subtracted {ref_id} off of {ids_to_subtract} for {ys}.')
             super().subtract(ref_id=ref_id, ids_to_subtract=ids_to_subtract, ys=ys) 
 
             if drop_zeros:
                 print(f'Dropped {ref_id} from info_df.')
                 self.info_df.drop(self.info_df.index[self.info_df['id']==ref_id] ,axis=0, inplace=True)
             for sub_idx in self.get_idx_from_id(ids_to_subtract):
-                    self.info_df.at[sub_idx, 'Subtracted'] = zid
+                    self.info_df.at[sub_idx, 'Subtracted'] = ref_id
         
         #reset index so doesnt mess up other functions
-        self.info_df.reset_index(inplace=True)
+        self.info_df.reset_index(inplace=True, drop=True)
         
         
 
@@ -133,9 +134,29 @@ class MCD_Data(AbsCD_Data):
             sub_data.info_df = sub_data.info_df.loc[sub_data.info_df[self.labels['FIELD']] in field].copy()
           
         #Find negative field of same magnitude
+        oppo_idxs = {}
         for i,row in sub_data.info_df.iterrows():
             #Find the scan for opposite sign field of same magnitude
-            oppo=self.info_df.loc[(self.info_df[self.labels['FIELD']]==(-1)*row[self.labels['FIELD']]) & (self.info_df[self.labels['TEMP']]==row[self.labels['TEMP']])].copy().reset_index().loc[0]
+            oppo=self.info_df.loc[(self.info_df[self.labels['FIELD']]==(-1)*row[self.labels['FIELD']]) & (self.info_df[self.labels['TEMP']]==row[self.labels['TEMP']])].copy().reset_index()
+            # if there are multiple "opposite fields" that match the criteria, find the one taken closest to its counterpart
+            closest_idx = 0
+            rowfield = row[self.labels['FIELD']]
+            rowtemp = row[self.labels['TEMP']]
+            oppo_idx_key = f'{rowfield}_{rowtemp}'
+            if oppo_idx_key not in oppo_idxs.keys():
+                oppo_idxs[oppo_idx_key] = []
+            while closest_idx in oppo_idxs[oppo_idx_key]:
+                closest_idx = closest_idx+1
+            for j,row2 in oppo.iterrows():
+                if abs(row2[self.labels['SCAN_NUM']] - row[self.labels['SCAN_NUM']]) <= abs(oppo.at[closest_idx, self.labels['SCAN_NUM']] - row[self.labels['SCAN_NUM']]):
+                    if len(oppo) != len(sub_data.info_df) or j not in oppo_idxs[oppo_idx_key]: #only allow duplicates if lists not the same size
+                        closest_idx = j
+            #Track what has already been used
+            if closest_idx not in oppo_idxs[oppo_idx_key]:
+                oppo_idxs[oppo_idx_key].append(closest_idx)
+            #select opposite field with correct index
+            oppo = oppo.iloc[closest_idx]
+            # print(closest_idx, row['id'], oppo_idxs)
             #Do the arithmetic
             sub_data.info_df.at[i,'data'][self.labels['CD']]=np.add(row['data'][self.labels['CD']],oppo['data'][self.labels['CD']])
             #Add the corresponding label
@@ -166,9 +187,28 @@ class MCD_Data(AbsCD_Data):
             sub_data.info_df = sub_data.info_df.loc[sub_data.info_df[self.labels['FIELD']] in field].copy()
           
         #Find negative field of same magnitude
+        oppo_idxs = {}
         for i,row in sub_data.info_df.iterrows():
             #Find the scan for opposite sign field of same magnitude
-            oppo=self.info_df.loc[(self.info_df[self.labels['FIELD']]==(-1)*row[self.labels['FIELD']]) & (self.info_df[self.labels['TEMP']]==row[self.labels['TEMP']])].copy().reset_index().loc[0]
+            oppo=self.info_df.loc[(self.info_df[self.labels['FIELD']]==(-1)*row[self.labels['FIELD']]) & (self.info_df[self.labels['TEMP']]==row[self.labels['TEMP']])].copy().reset_index()
+            # if there are multiple "opposite fields" that match the criteria, find the one taken closest to its counterpart
+            closest_idx = 0
+            rowfield = row[self.labels['FIELD']]
+            rowtemp = row[self.labels['TEMP']]
+            oppo_idx_key = f'{rowfield}_{rowtemp}'
+            if oppo_idx_key not in oppo_idxs.keys():
+                oppo_idxs[oppo_idx_key] = []
+            while closest_idx in oppo_idxs[oppo_idx_key]:
+                closest_idx = closest_idx+1
+            for j,row2 in oppo.iterrows():
+                if abs(row2[self.labels['SCAN_NUM']] - row[self.labels['SCAN_NUM']]) <= abs(oppo.at[closest_idx, self.labels['SCAN_NUM']] - row[self.labels['SCAN_NUM']]):
+                    if len(oppo) != len(sub_data.info_df) or j not in oppo_idxs[oppo_idx_key]: #only allow duplicates if lists not the same size
+                        closest_idx = j
+            #Track what has already been used
+            if closest_idx not in oppo_idxs[oppo_idx_key]:
+                oppo_idxs[oppo_idx_key].append(closest_idx)
+            #select opposite field with correct index
+            oppo = oppo.iloc[closest_idx]
             #Do the arithmetic
             sub_data.info_df.at[i,'data'][self.labels['CD']] = 0.5 * np.subtract(row['data'][self.labels['CD']],oppo['data'][self.labels['CD']])
             #Add the corresponding label
@@ -179,7 +219,7 @@ class MCD_Data(AbsCD_Data):
 
 
         def add_deps(self, conc, conc_units='M', path_length=0.3):
-        '''Add a y value of Delta Epsilon (1/M*cm) by converting from mdeg.
-        conc - takes numerical value or name of dataframe column in self.data
-        Defaults to pathlength = 0.3 cm for MCD'''
+            '''Add a y value of Delta Epsilon (1/M*cm) by converting from mdeg.
+            conc - takes numerical value or name of dataframe column in self.data
+            Defaults to pathlength = 0.3 cm for MCD'''
             super().add_deps(conc, conc_units = conc_units, path_length = path_length)

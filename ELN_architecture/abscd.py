@@ -118,6 +118,7 @@ class AbsCD_Data(Lab_Data):
     def add_deps(self, conc, conc_units='M', path_length=1):
         '''Add a y value of Delta Epsilon (1/M*cm) by converting from mdeg.
         conc - takes numerical value or name of dataframe column in self.data'''
+        print('Path Length = ', path_length)
         
         #Handle concentration input type
         if type(conc) is str:
@@ -280,7 +281,8 @@ class AbsCD_Data(Lab_Data):
         if 'fit' not in self.info_df.columns:
             self.info_df['fit'] = None
             self.info_df['fit'] = self.info_df['fit'].astype('object')
-        print(idx)
+        print(f"name.info_df.at[{idx}, 'fit']")
+        print(details.to_markdown())
         self.info_df.at[idx,'fit'] = results
         
         
@@ -323,11 +325,20 @@ class AbsCD_Data(Lab_Data):
             total_fit = np.sum(gauss_list, axis=0)
             
             #Add expt, total fit, and each gaussian
-            fit[id+'_'+ylab] = ys[j].copy()
-            fit['fit_'+ylab]= total_fit.copy()
+            # fit[id+'_'+ylab] = ys[j].copy()
+            fit['fit_'+id+'_'+ylab]= total_fit.copy()
             for k in range(len(gauss_list)):
                 lab=ylab+'_g'+str(k)
                 fit[lab] = gauss_list[k]              
-        fig = px.line(data_frame=fit, x='x', y=[h for h in fit.columns if ylab in h], **kwargs)
-        fig.show()
+        fit_fig = px.line(data_frame=fit, x='x', y=[h for h in fit.columns if ylab in h])
+        
+        if 'fig' not in kwargs:
+            fig = fit_fig
+            kwargs['fig']= fig 
+        else:
+            kwargs['fig']= kwargs.get('fig').add_traces(fit_fig.data)
+        if 'ids' not in kwargs:
+            kwargs['ids'] = [id]
+        fig = self.quick_plot(y=y_cols, x=x_col, **kwargs)
+        return fig
         #return fit

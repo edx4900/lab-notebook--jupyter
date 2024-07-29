@@ -105,7 +105,9 @@ class Lab_Data:
         print(self.info_df.at[0,'data'].columns.values)
         return self.info_df.drop('data',axis=1).to_markdown()
 
-    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, height=None, width=1000, fig=None, **kwargs):
+    def quick_plot(self, x= None, y= None, x_range=None, y_range=None, ids=None, height=None, width=1000, fig=None, 
+                colors= ['blue', 'red', 'green', 'gold',  'purple', 'deepskyblue', 'orange', 'slategrey', 'brown', 'black'],
+                **kwargs):
         '''Use plotly to generate a general plot.
         x and y take as imput the string for the column
         x_range and y_range are lists of xlim and ylim
@@ -121,15 +123,15 @@ class Lab_Data:
             x = self.info_df.at[0,'data'].columns.values[0]
 
         if fig is None:
-            fig = plotly.subplots.make_subplots(rows=len(y), cols=1, subplot_titles=y, vertical_spacing=0.1, shared_xaxes=True)
+            fig = plotly.subplots.make_subplots(rows=len(y), cols=1, vertical_spacing=0.1, shared_xaxes=True) #subplot_titles=y, 
 
         # Define a color sequence for lines
         #colors = px.colors.qualitative.G10 #alternative color scheme
-        colors = ['blue', 'red', 'green', 'gold',  'purple', 'deepskyblue', 'orange', 'slategrey', 'brown', 'black']
+        # colors = ['blue', 'red', 'green', 'gold',  'purple', 'deepskyblue', 'orange', 'slategrey', 'brown', 'black']
         
         #Chat GPT figured out a way to link the colors and names of the plots for each y value
         for i, y_label in enumerate(y):
-            for j, idx in enumerate(self.info_df.index):
+            for j, idx in enumerate(self.info_df.index if ids is None else self.info_df.loc[self.info_df['id'].isin(ids)].index):
                 color_index = j % len(colors)  # Cycle through colors for each line in subplot
                 trace_name = f'{self.info_df.at[idx, "id"]} ({y_label})'  # Include both index label and y label in trace name
                 fig.add_trace(go.Scatter(x=self.info_df.at[idx, 'data'][x], y=self.info_df.at[idx, 'data'][y_label], name=trace_name, 
@@ -158,7 +160,7 @@ class Lab_Data:
         # colors = ['b', 'r', 'g', 'y', 'purple', 'cyan', 'orange', 'gray']
         
         print("to_plot = VARNAME")
-        print("fig = plt.subplots(figsize=[10,6]")
+        print("fig,axs = plt.subplots(figsize=[10,6])")
         print()
 
         for i,row in self.info_df.iterrows():
