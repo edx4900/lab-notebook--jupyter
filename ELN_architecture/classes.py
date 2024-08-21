@@ -51,7 +51,7 @@ class Lab_Data:
         for root,dirs,file in os.walk(top=path_to_raw_data):
             if root==path_to_raw_data:
                 for f in file:
-                    if f.endswith('.csv') and f != info_csv:
+                    if (f.endswith('.csv') or f.endswith('.CSV')) and f != info_csv:
                         data_files.append(f)
         #use pandas to read in info file
         self.info_df = pd.read_csv(info_csv)
@@ -64,7 +64,7 @@ class Lab_Data:
         #iterate through the info_df to read in the data files and store in the data column in info_df
         for i,row in self.info_df.iterrows():
             if self.info_df.at[i,'File'] in data_files:
-                self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data + row['File'], index_col=0)
+                self.info_df.at[i,'data'] = pd.read_csv(path_to_raw_data + row['File'])
         return True
 
     def process(self,path_to_raw_data, info_csv, **kwargs):
