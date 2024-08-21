@@ -104,11 +104,11 @@ class AbsCD_Data(Lab_Data):
                 else:
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0])))
-    def add_wavenums(self):
+    def add_wavenums(self, nm_str='NANOMETERS'):
         '''Add an x value of wavenumbers by converting nanometers'''
-        if 'NANOMETERS' in self.info_df.at[0,'data'].columns:
+        if nm_str in self.info_df.at[0,'data'].columns:
             for i,row in self.info_df.iterrows():
-                self.info_df.at[i,'data']['Wavenums'] = np.power(row['data']['NANOMETERS'],-1)*10000000
+                self.info_df.at[i,'data']['Wavenums'] = np.power(row['data'][nm_str].astype(float),-1)*10000000
             print(self.info_df.at[0,'data'].columns.values)
             return True
         else:
@@ -145,7 +145,7 @@ class AbsCD_Data(Lab_Data):
                 self.info_df.at[i,'data']['deps'] = np.divide(row['data']['CD/DC [mdeg]'],(concM[i] * path_length * 32980)) # type: ignore
         print(self.info_df.at[0,'data'].columns.values)
 
-    def add_eps(self, conc, conc_units='M', path_length=1):
+    def add_eps(self, conc, conc_units='M', path_length=1, abs_str='ABSORBANCE'):
         '''Add a y value of Epsilon (1/M*cm) by converting from Abs.
         conc - takes numerical value or name of dataframe column in self.data'''
         #Handle concentration input type
@@ -167,10 +167,10 @@ class AbsCD_Data(Lab_Data):
             concM = conc
         
         #check for units to convert from
-        if 'ABSORBANCE' in self.info_df.at[0,'data'].columns:
+        if abs_str in self.info_df.at[0,'data'].columns:
             #for each row do the math for the conversion
             for i, row in self.info_df.iterrows():
-                self.info_df.at[i,'data']['eps'] = np.divide(row['data']['ABSORBANCE'],(concM[i] * path_length)) # type: ignore
+                self.info_df.at[i,'data']['eps'] = np.divide(row['data'][abs_str],(concM[i] * path_length)) # type: ignore
         print(self.info_df.at[0,'data'].columns.values)
 
     def gauss(self, x, center, fwhm):
