@@ -85,25 +85,25 @@ class AbsCD_Data(Lab_Data):
         #self.processing_metadata = self.processing_metadata + ' baseline subtracted off using' + x_col + str(x_range)
         return True
 
-    def fix_changeover(self, ys, x_change, x_col='NANOMETERS', to_move='Less', ignore_idx=None):
+    def fix_changeover(self, ys, x_change, x_col='NANOMETERS', to_move='Less', ignore_idx=None, pts=2):
         '''Fix the discontinuity created by the J-1700 when the detector changes'''
         for i, row in self.info_df.iterrows():
             if ignore_idx is None or i not in ignore_idx:
                 #Determine the y value before and after the discontinuity
-                before = self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change].head(2)[ys].values
-                after = self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change].tail(2)[ys].values
+                before = np.average(self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change].head(pts)[ys].values)
+                after = np.average(self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change].tail(pts)[ys].values)
                 diff = np.subtract(after,before)
                 #subtract off the difference from the appropriate side
-                if to_move == 'Less':
-                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff[0]),
+                if to_move == 'Less' or to_move== 'less':
+                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff),
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys]))
 
                 elif to_move == 'Both' or to_move == 'both':
-                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff[0]/2),
-                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0]/2)))
+                    self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff/pts),
+                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff/pts)))
                 else:
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
-                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff[0])))
+                                                                self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff)))
     def add_wavenums(self, nm_str='NANOMETERS'):
         '''Add an x value of wavenumbers by converting nanometers'''
         if nm_str in self.info_df.at[0,'data'].columns:
@@ -145,9 +145,10 @@ class AbsCD_Data(Lab_Data):
                 self.info_df.at[i,'data']['deps'] = np.divide(row['data']['CD/DC [mdeg]'],(concM[i] * path_length * 32980)) # type: ignore
         print(self.info_df.at[0,'data'].columns.values)
 
-    def add_eps(self, conc, conc_units='M', path_length=1, abs_str='ABSORBANCE'):
+    def add_eps(self, conc, conc_units='M', path_length=1, abs_str='ABSORBANCE', ids=None):
         '''Add a y value of Epsilon (1/M*cm) by converting from Abs.
-        conc - takes numerical value or name of dataframe column in self.data'''
+        conc - takes numerical value or name of dataframe column in self.data
+        ids - list of ids for which rows to add eps for'''
         #Handle concentration input type
         if isinstance(conc, str):
             conc = self.info_df[conc].to_numpy()
@@ -170,7 +171,9 @@ class AbsCD_Data(Lab_Data):
         if abs_str in self.info_df.at[0,'data'].columns:
             #for each row do the math for the conversion
             for i, row in self.info_df.iterrows():
-                self.info_df.at[i,'data']['eps'] = np.divide(row['data'][abs_str],(concM[i] * path_length)) # type: ignore
+                if ids is None or row['id'] in ids:
+                    # print(f'Added eps for {row['id']}.')
+                    self.info_df.at[i,'data']['eps'] = np.divide(row['data'][abs_str],(concM[i] * path_length)) # type: ignore
         print(self.info_df.at[0,'data'].columns.values)
 
     def gauss(self, x, center, fwhm):
