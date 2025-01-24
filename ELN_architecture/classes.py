@@ -84,14 +84,14 @@ class Lab_Data:
         #save each individual dataset
         for i, row in self.info_df.iterrows():
             # Manipulate the File name to make it a csv #CURRENTLY USES EXISTING FILE NAME SO NEED NEW PATH TO NOT OVERWRITE
-            if not row['File'].endswith('.csv'):
+            if not row['File'].endswith('.csv') and not row['File'].endswith('.CSV'):
                 row['File'] = str(row['File']) + '.csv'
             name = str(row['File'])
             #save x,y data to csv
             row['data'].to_csv(f'{path_to_proc_data}{name}')
         #save the info df
         info = self.info_df.drop('data', axis=1)
-        info.to_csv(f'{path_to_proc_data}info.csv')
+        info.to_csv(f'{path_to_proc_data}info.csv', index=False)
         print(f'Data saved to {path_to_proc_data}.')
         return path_to_proc_data
 
@@ -106,7 +106,7 @@ class Lab_Data:
         return self.info_df.drop('data',axis=1).to_markdown()
 
     def quick_plot(self, x= None, y= None, x_range=None, y_range=None, ids=None, height=None, width=1000, fig=None, 
-                colors= ['blue', 'red', 'green', 'gold',  'purple', 'deepskyblue', 'orange', 'slategrey', 'brown', 'black'],
+                colors= ['blue', 'red', 'green',  'purple', 'deepskyblue', 'orange', 'slategrey', 'brown', 'black', 'gold'],
                 **kwargs):
         '''Use plotly to generate a general plot.
         x and y take as imput the string for the column
