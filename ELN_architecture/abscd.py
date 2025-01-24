@@ -101,9 +101,12 @@ class AbsCD_Data(Lab_Data):
                 elif to_move == 'Both' or to_move == 'both':
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys].add(diff/pts),
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff/pts)))
-                else:
+                elif to_move == 'More' or to_move == 'more':
                     self.info_df.at[i,'data'][ys] = pd.concat((self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] < x_change][ys],
                                                                 self.info_df.at[i,'data'].loc[self.info_df.at[i,'data'][x_col] >= x_change][ys].sub(diff)))
+                else:
+                    print('Please specify to_move as Less, Both, or More as to_move parameter.')
+                    
     def add_wavenums(self, nm_str='NANOMETERS'):
         '''Add an x value of wavenumbers by converting nanometers'''
         if nm_str in self.info_df.at[0,'data'].columns:
