@@ -59,7 +59,7 @@ class MCD_Data(AbsCD_Data):
             self.labels[key] = new_labels[key]
         return self.labels
 
-    def subtract(self, ref_id = -1, ys=['CD/DC [mdeg]'], ids_to_subtract=None, drop_zeros=True):
+    def subtract(self, ref_id = -1, ys=['CD/DC [mdeg]'], ids_to_subtract=None, drop_zeros=True, same_temp=True):
         '''Subtract off 0 T MCD spectra from the correct nonzero field spectra. 
         ref_id - dictates which zero you will be using, -1 by default is the 0T before, +1 is the 0T after, else takes id of the zero you want.
         ids_to_subtract - which spectra to subtract off of, by default is all of them'''
@@ -73,19 +73,43 @@ class MCD_Data(AbsCD_Data):
         #See which spectra to sub with each zero with builtin logic
         if ref_id in [-1, 1]:
             for zi in range(len(zero_idx)):
+                #Set a condition for scans having same temp to subtract them
+                if same_temp:
+                    temp_bool = (self.info_df[self.labels['TEMP']] == self.info_df.at[zero_idx[zi], self.labels['TEMP']])
+                    #Find the next/previous matching 0T to use as boundary condition for search
+                    next_zero = False
+                    for zj in range(zi+1,len(zero_idx)):
+                        if (self.info_df.at[zero_idx[zj], self.labels['TEMP']] == self.info_df.at[zero_idx[zi], self.labels['TEMP']]):
+                            next_zero = self.info_df.at[zero_idx[zj], self.labels['SCAN_NUM']]
+                            break
+                        else:
+                            pass #keep looking
+                    
+                    prev_zero = False
+                    for zj in range(zi-1, -1, -1):
+                        if (self.info_df.at[zero_idx[zj], self.labels['TEMP']] == self.info_df.at[zero_idx[zi], self.labels['TEMP']]):
+                            prev_zero = self.info_df.at[zero_idx[zj], self.labels['SCAN_NUM']]
+                            break
+                        else:
+                            pass #keep looking
+                else:
+                    temp_bool = (self.info_df[self.labels['SCAN_NUM']].notnull())
+                    next_zero = self.info_df.at[zero_idx[zi+1], self.labels['SCAN_NUM']]
+                    prev_zero = self.info_df.at[zero_idx[zi-1], self.labels['SCAN_NUM']]
+
                 if ref_id == -1: 
-                    #select ones after the zero
-                    if zi < len(zero_idx)-1:
-                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi+1], self.labels['SCAN_NUM']])]['id'].to_numpy()
+                    #select ones after the zero (and before the next 0T)
+                    if zi < len(zero_idx)-1 or next_zero!=False:
+                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (self.info_df[self.labels['SCAN_NUM']] < next_zero) & (temp_bool)]['id'].to_numpy()
                     else:
-                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']])]['id'].to_numpy()
+                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (temp_bool)]['id'].to_numpy()
 
                 elif ref_id == 1: 
-                    #select ones before the zero
-                    if zi > 0:
-                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (self.info_df[self.labels['SCAN_NUM']] > self.info_df.at[zero_idx[zi-1], self.labels['SCAN_NUM']])]['id'].to_numpy()
+                    #select ones before the zero (and after the previous 0T)
+                    if zi > 0 or prev_zero!=False: 
+                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (self.info_df[self.labels['SCAN_NUM']] > prev_zero) & (temp_bool)]['id'].to_numpy()
                     elif zi == 0:
-                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']])]['id'].to_numpy()
+                        sub_id = self.info_df.loc[(self.info_df[self.labels['FIELD']]!=0) & (self.info_df[self.labels['SCAN_NUM']] < self.info_df.at[zero_idx[zi], self.labels['SCAN_NUM']]) & (temp_bool)]['id'].to_numpy()
                 
                 #Get id of the 0T for printing and then do the subtraction
                 zid = self.info_df.at[zero_idx[zi], 'id']
